@@ -4,12 +4,12 @@ I'm trying to create a bot that can identify arbitrage opportunities across exch
 If an opportunity exists, then send transactions through a flashbot relay, to avoid front-running.
 
 To run the program:
-In a separate terminal window, run `npx hardhat node`  
-then
 ```
 npm install
 npx hardhat run scripts/checkArbitrage.js
 ```
+In a separate terminal window, run `npx hardhat node` before running the script
+
 (forked mainnet at block 14384561; might take some time to build data cache on first run)
 
 ### Done so far
