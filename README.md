@@ -10,16 +10,13 @@ npx hardhat run scripts/checkArbitrage.js
 ```
 (forked mainnet at block 14384561; might take some time to build data cache on first run)
 
-#### Done so far
-Scripts for data 
-checkArbitrage.js
+### Done so far
+Scripts for data: **checkArbitrage.js**
+Smart contracts: **PairData.sol**
 - fetch, filter, and organize pool data from the exchanges
 - evaluate the pairs for arbitrage opportunity and profitability
 - update reserves on each new block
 
-Smart contracts
-- PairData.sol
-
-#### In Progress
+### In Progress
 - smart contract for execution of flashloan & arbitrage
 - creating & sending transactions using flashbot bundles
