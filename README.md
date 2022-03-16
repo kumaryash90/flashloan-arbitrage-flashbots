@@ -3,7 +3,9 @@
 I'm trying to create a bot that can identify arbitrage opportunities across exchanges (uniswap and sushiswap currently).
 If an opportunity exists, then send transactions through a flashbot relay, to avoid front-running.
 
-To run the scripts:
+To run the program:
+In a separate terminal window, run `npx hardhat node`  
+then
 ```
 npm install
 npx hardhat run scripts/checkArbitrage.js
