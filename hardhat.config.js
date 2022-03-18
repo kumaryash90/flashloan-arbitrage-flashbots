@@ -6,8 +6,8 @@ module.exports = {
   networks: {
     hardhat: {
       forking: {
-        url: process.env.ALCHEMY_MAINNET_URL,
-        blockNumber: 14384561
+        url: process.env.ALCHEMY_GOERLI_URL,
+        blockNumber: 6558320
       }
     },
     goerli: {

@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import "./IUniswapV2Factory.sol";
 import "./IUniswapV2Pair.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "hardhat/console.sol";
+// import "hardhat/console.sol";
 
 contract PairData {
     function getPairs(address _factory, uint _start, uint _end) external view returns(address[3][] memory) {
