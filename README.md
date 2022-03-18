@@ -13,8 +13,8 @@ To run locally using a fork, in a separate terminal window, run `npx hardhat nod
 (forked mainnet at block 14384561; might take some time to build data cache on first run)
 
 ### Done so far
-Smart contracts: **PairData.sol** **Arbitrage.sol**  
-Scripts for data: **checkArbitrage.js** **executeArbitrage.js**
+Smart contracts: **PairData.sol**, **Arbitrage.sol**  
+Scripts for data: **checkArbitrage.js**, **executeArbitrage.js**
 - fetch, filter, and organize pool data from the exchanges
 - evaluate the pairs for arbitrage opportunity and profitability
 - update reserves on each new block
