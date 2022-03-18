@@ -8,17 +8,17 @@ To run the program:
 npm install
 npx hardhat run scripts/checkArbitrage.js
 ```
-In a separate terminal window, run `npx hardhat node` before running the script
+To run locally using a fork, in a separate terminal window, run `npx hardhat node` before running the script
 
 (forked mainnet at block 14384561; might take some time to build data cache on first run)
 
 ### Done so far
-Scripts for data: **checkArbitrage.js**  
-Smart contracts: **PairData.sol**
+Smart contracts: **PairData.sol** **Arbitrage.sol**  
+Scripts for data: **checkArbitrage.js** **executeArbitrage.js**
 - fetch, filter, and organize pool data from the exchanges
 - evaluate the pairs for arbitrage opportunity and profitability
 - update reserves on each new block
+- smart contract for execution of flashloan & arbitrage
 
 ### In Progress
-- smart contract for execution of flashloan & arbitrage
 - creating & sending transactions using flashbot bundles
