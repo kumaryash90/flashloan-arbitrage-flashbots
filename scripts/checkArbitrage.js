@@ -1,14 +1,17 @@
 const { ethers } = require("hardhat");
 const { factory, token, master, router } = require("./data.json");
+const { execute } = require("./executeArbitrage");
 const factoryArtifact = require("../artifacts/contracts/IUniswapV2Factory.sol/IUniswapV2Factory.json");
 const pairDataArtifact = require("../artifacts/contracts/PairData.sol/PairData.json");
+const { BigNumber } = require("ethers");
 
 const getPairs = async (pd,factory, pairsLength, requestLength) => {
+    /**mainnetgoerli */
     const weth = token.goerli.WETH;
     let pairData = [];
     for(let i = 0; i < pairsLength; i += requestLength) {
         let pairs = await pd.getPairs(factory, i, i + requestLength);
-        console.log("pairs: ", pairs.length);
+        console.log("pairs: ", i, i + requestLength);
         for(let j = 0; j < requestLength; j++) {
             pairData.push(pairs[j]);
         }
@@ -19,11 +22,6 @@ const getPairs = async (pd,factory, pairsLength, requestLength) => {
         return pairItem[0] === weth || pairItem[1] === weth;
     });
     console.log(pairData);
-
-    // const pairs = pairData.map(pairItem => {
-    //     return pairItem[2];
-    // });
-    // console.log(pairs);
 
     const tokens = pairData.map(pairItem => {
         return pairItem[0] === weth ? pairItem[1] : pairItem[0];
@@ -62,80 +60,49 @@ const setMaster = async (pairData, tokens) => {
 
 const getReserves = async (pd) => {
     let reserves = await pd.getReserves(master.pairs);
-    console.log(reserves);
-
-    if(master.pairs.length === reserves.length) {
-        const length = reserves.length;
-        for(let i = 0; i < length; i++) {
-            master.reserves.push([
-                ethers.utils.formatUnits(reserves[i][0], master.decimals[i][0]),
-                ethers.utils.formatUnits(reserves[i][1], master.decimals[i][1])
-            ]);
-        }
-        console.log(master.reserves);
-    } else {    
-        console.log("something went wrong");
-    }
-}
-
-const getDecimals = async (pd) => {
-    let decimals = await pd.getDecimals(master.pairs);
-
-    if(master.pairs.length === decimals.length) {
-        const length = decimals.length;
-        for(let i = 0; i < length; i++) {
-            master.decimals.push([
-                parseInt(decimals[i][0]),
-                parseInt(decimals[i][1])
-
-            ]);
-        }
-        console.log(master.decimals);
-    } else {    
-        console.log("something went wrong");
-    }
+    // console.log("reserves length: ", reserves.length);
+    master.reserves = reserves;
 }
 
 const getAmountIn = (amountOut, reserveIn, reserveOut) => {
-    const numerator = reserveIn * amountOut;
-    const denominator = (reserveOut - amountOut);
-    if(denominator === 0) {
+    const numerator = reserveIn.mul(amountOut);
+    const denominator = reserveOut.sub(amountOut);
+    if(denominator.eq(0)) {
         console.log("division by 0, getAmountIn");
         process.exit(1);
     }
-    const amountIn = (numerator / denominator);
-    return amountIn * 1.003
+    const amountIn = numerator.div(denominator);
+    return amountIn.add(amountIn.mul(3).div(1000));
 }
 
 const getAmountOut = (amountIn, reserveIn, reserveOut) => {
-    const amountInWithFee = amountIn * 0.997;
-    const numerator = amountInWithFee * (reserveOut);
-    const denominator = (reserveIn * 1) + (amountInWithFee);
-    if(denominator === 0) {
+    const amountInWithFee = amountIn.sub(amountIn.mul(3).div(1000));
+    const numerator = amountInWithFee.mul(reserveOut);
+    const denominator = reserveIn.add(amountInWithFee);
+    if(denominator.eq(0)) {
         console.log("division by 0, getAmountOut");
         process.exit(1);
     }
-    const amountOut = numerator / denominator;
-    return amountOut * 1;
+    const amountOut = numerator.div(denominator);
+    return amountOut;
 }
 
 const checkProfitability = (fromEthReserve, fromTokenReserve, toTokenReserve, toEthReserve) => {
-    let tokensMax = (fromTokenReserve * 1 < toTokenReserve * 1 ? fromTokenReserve * 1 : toTokenReserve * 1);
+    let tokensMax = fromTokenReserve.lt(toTokenReserve) ? fromTokenReserve : toTokenReserve;
     //let tokensMax = toTokenReserve * 1;
-    let tokensMin = 0;
-    let tokensToTrade = tokensMax / 2;
-    let checkProfit = 0;
+    let tokensMin = BigNumber.from(0);
+    let tokensToTrade = tokensMax.div(2);
+    let checkProfit = BigNumber.from(0);
     let ethIn, ethOut;
+    let flag = true;
     
-    while((tokensMax - tokensMin) > 1) {
+    while((tokensMax.sub(tokensMin)).gt(1)) {
         
         const checkEthIn = getAmountIn(tokensToTrade, fromEthReserve, fromTokenReserve);
         const checkEthOut = getAmountOut(tokensToTrade, toTokenReserve, toEthReserve);
-        const _checkProfit = checkEthOut - checkEthIn;
-        if(Math.abs(_checkProfit) < 0.0001) break;
-        console.log(`tokensMin: ${tokensMin}; tokensMax: ${tokensMax}; tokens: ${(tokensMax + tokensMin) / 2}; profit: ${_checkProfit}; ethIn: ${checkEthIn}; ethOut: ${checkEthOut} `);
+        const _checkProfit = checkEthOut.sub(checkEthIn);
 
-        if(_checkProfit < checkProfit) {
+        if(_checkProfit.lt(checkProfit)) {
             tokensMax = tokensToTrade;
         } else {
             ethIn = checkEthIn;
@@ -143,120 +110,121 @@ const checkProfitability = (fromEthReserve, fromTokenReserve, toTokenReserve, to
             checkProfit = _checkProfit;
             tokensMin = tokensToTrade;
         }
-        tokensToTrade = (tokensMax + tokensMin) / 2;
-        console.log("");
+        tokensToTrade = tokensMax.add(tokensMin).div(2);
+        // console.log("");
     }
-    return { ethIn, ethOut, checkProfit, tokensToTrade };
+    return { ethIn, ethOut, checkProfit, tokensToTrade, flag };
 }
 
-const evaluatePairs = async () => {
+const evaluatePairs = async (flaggedPairs) => {
     const tokenLength = master.tokens.length;
-    let tradePairs = [];
-    let tradeRouters = [];
-    let tradeTokens = [];
-    let tokenAmount;
-    let decimals;
-    let profit = 0;
+    const potentialTrades = [];
+    let profit = BigNumber.from(0);
     for(let i = 0; i < tokenLength; i++) {
+        if(flaggedPairs.indexOf(i) !== -1) continue;
        //if(i > 31) process.exit(0);
-        console.log(`--- pair #${i} ---`);
-        console.log(`token0: ${master.pairData[i][0]}`);
-        console.log(`token1: ${master.pairData[i][1]}`);
-        console.log(`pair addresses:`);
-        console.log(`   uni: ${master.pairData[i][2]}`);
-        console.log(`   sushi: ${master.pairData[i + tokenLength][2]}`);
+        // console.log(`--- pair #${i} ---`);
+        // console.log(`token0: ${master.pairData[i][0]}`);
+        // console.log(`token1: ${master.pairData[i][1]}`);
+        // console.log(`pair addresses:`);
+        // console.log(`   uni: ${master.pairData[i][2]}`);
+        // console.log(`   sushi: ${master.pairData[i + tokenLength][2]}`);
 
         /* mainnetgoerli*/
         const tokenIndex = master.pairData[i][0] === token.goerli.WETH ? 1 : 0;
         const wethIndex = tokenIndex === 0 ? 1 : 0;
 
-        if(master.reserves[i][wethIndex] > 0 && master.reserves[i + tokenLength][wethIndex] > 0 
-            && master.reserves[i][tokenIndex] > 0 && master.reserves[i + tokenLength][tokenIndex] > 0) {
-            console.log(`prices:`);
-            const priceUni = master.reserves[i][tokenIndex] / master.reserves[i][wethIndex];
-            const priceSushi = master.reserves[i + tokenLength][tokenIndex] / master.reserves[i + tokenLength][wethIndex];
-            console.log(`   uni: ${priceUni}`);
-            console.log(`   sushi: ${priceSushi}`);
+        if(master.reserves[i][wethIndex].gt(BigNumber.from(10).pow(18)) && master.reserves[i + tokenLength][wethIndex].gt(BigNumber.from(10).pow(18)) 
+            && master.reserves[i][tokenIndex].gt(0) && master.reserves[i + tokenLength][tokenIndex].gt(0)) {
+            // console.log(`prices:`);
+            const priceUni = master.reserves[i][tokenIndex].div(master.reserves[i][wethIndex]);
+            const priceSushi = master.reserves[i + tokenLength][tokenIndex].div(master.reserves[i + tokenLength][wethIndex]);
+            // console.log(`   uni: ${priceUni.toString()}`);
+            // console.log(`   sushi: ${priceSushi.toString()}`);
 
-            console.log("reserves: ");
-            console.log(`   uni tokens: ${master.reserves[i][tokenIndex]}`);
-            console.log(`   uni eth: ${master.reserves[i][wethIndex]}`);
-            console.log(`   sushi tokens: ${master.reserves[i + tokenLength][tokenIndex]}`);
-            console.log(`   sushi eth: ${master.reserves[i + tokenLength][wethIndex]}`);
+            // console.log("reserves: ");
+            // console.log(`   uni tokens: ${master.reserves[i][tokenIndex].toString()}`);
+            // console.log(`   uni eth: ${master.reserves[i][wethIndex].toString()}`);
+            // console.log(`   sushi tokens: ${master.reserves[i + tokenLength][tokenIndex].toString()}`);
+            // console.log(`   sushi eth: ${master.reserves[i + tokenLength][wethIndex].toString()}`);
     
-            if(priceUni > priceSushi) {
+            if(priceUni.gt(priceSushi)) {
 
-                const { ethIn, ethOut, checkProfit, tokensToTrade } = checkProfitability(
+                const { ethIn, ethOut, checkProfit, tokensToTrade, flag } = checkProfitability(
                                                                 master.reserves[i][wethIndex], 
                                                                 master.reserves[i][tokenIndex],
                                                                 master.reserves[i + tokenLength][tokenIndex], 
                                                                 master.reserves[i + tokenLength][wethIndex]
                                                                 );
 
-                console.log(`buying from Uni, selling at Sushi`);
-                console.log(`profit: ${checkProfit} eth`);
+                // console.log(`buying from Uni, selling at Sushi`);
+                // console.log(`profit: ${checkProfit.toString()} eth`);
     
-                if(checkProfit > profit) {
-                    tradePairs = [
-                        master.pairData[i][2],
-                        master.pairData[i + tokenLength][2]
-                    ];
-
-                    tradeRouters = [
-                        router.goerli.UNI,
-                        router.goerli.SUSHI
-                    ];
-
-                    tradeTokens = [
-                        master.pairData[i][0],
-                        master.pairData[i][1]
-                    ];
-
-                    tokenAmount = tokensToTrade;
-                    decimals = master.decimals[i][tokenIndex];
-                    profit = checkProfit;
+                if(checkProfit.gt(profit) && flag) {
+                    potentialTrades.push({
+                        tradePairs: [
+                            master.pairData[i][2],
+                            master.pairData[i + tokenLength][2]
+                        ],
+                        /**mainnetgoerli */
+                        tradeRouters: [
+                            router.goerli.UNI,
+                            router.goerli.SUSHI
+                        ],
+    
+                        tradeTokens: [
+                            master.pairData[i][0],
+                            master.pairData[i][1]
+                        ],
+    
+                        tokenAmount: tokensToTrade,
+                        profit: checkProfit,
+                        index: i
+                    })
                 }
                 
             } else {
 
-                const { ethIn, ethOut, checkProfit, tokensToTrade } = checkProfitability(
+                const { ethIn, ethOut, checkProfit, tokensToTrade, flag } = checkProfitability(
                                                                 master.reserves[i + tokenLength][wethIndex],
                                                                 master.reserves[i + tokenLength][tokenIndex],
                                                                 master.reserves[i][tokenIndex],
                                                                 master.reserves[i][wethIndex],
                                                                 );
 
-                console.log(`buying from Sushi, selling at Uni`);
-                console.log(`profit: ${checkProfit} eth`);
+                // console.log(`buying from Sushi, selling at Uni`);
+                // console.log(`profit: ${checkProfit.toString()} eth`);
     
-                if(checkProfit > profit) {
-                    tradePairs = [
-                        master.pairData[i + tokenLength][2],
-                        master.pairData[i][2]
-                    ];
-
-                    tradeRouters = [
-                        router.goerli.SUSHI,
-                        router.goerli.UNI
-                    ];
-
-                    tradeTokens = [
-                        master.pairData[i][0],
-                        master.pairData[i][1]
-                    ];
-
-                    tokenAmount = tokensToTrade;
-                    decimals = master.decimals[i][tokenIndex];
-                    profit = checkProfit;
+                if(checkProfit.gt(profit) && flag) {
+                    potentialTrades.push({
+                        tradePairs: [
+                            master.pairData[i + tokenLength][2],
+                            master.pairData[i][2]
+                        ],
+                        /**mainnetgoerli */
+                        tradeRouters: [
+                            router.goerli.SUSHI,
+                            router.goerli.UNI
+                        ],
+    
+                        tradeTokens: [
+                            master.pairData[i][0],
+                            master.pairData[i][1]
+                        ],
+    
+                        tokenAmount: tokensToTrade,
+                        profit: checkProfit,
+                        index: i
+                    });
                 }
             }
         } else {
-            console.log("pair not liquid enough");
+            // console.log("pair not liquid enough");
         }
-        console.log("");
+        // console.log("");
     }
     
-    return { tradePairs, tradeRouters, tradeTokens, tokenAmount, decimals, profit };
+    return { potentialTrades };
 }
 
 const main = async () => {
@@ -270,59 +238,32 @@ const main = async () => {
     const [signer] = await ethers.getSigners();
     const pd = new ethers.Contract("0x6c23860B3B38F5949bFBA9416E8416dB5ed3e1B4", pairDataArtifact.abi, signer);
 
-    await getPairs(pd, factory.goerli.UNI, 8000, 1000);
+    await getPairs(pd, factory.goerli.UNI, 8000, 500);
     await getPairs(pd, factory.goerli.SUSHI, 800, 400);
-    console.log("master data")
-    console.log("--------------------");
-    console.log("master tokens: ", master.tokens);
-    console.log("master pairs: ", master.pairs);
-    console.log("master pairData: ", master.pairData);
-    console.log("total tokens in master: ", master.tokens.length);
-    console.log("total pairs in master: ", master.pairs.length);
 
-    console.log("random pair ---- ");
-    let random = Math.round(Math.random() * master.tokens.length);
-    console.log(random);
-    console.log("uni pair: ", master.pairs[random]);
-    console.log("sushi pair: ", master.pairs[random + master.tokens.length]);
-    // console.log("master pairs: ", master.pairs);
-    console.log("random pair ---- ");
-    random = Math.round(Math.random() * master.tokens.length);
-    console.log(random);
-    console.log("uni pair: ", master.pairs[random]);
-    console.log("sushi pair: ", master.pairs[random + master.tokens.length]);
+   ethers.provider.on("block", async (blocknum) => {
+        console.log(blocknum);
+        
+        await getReserves(pd);
 
-    console.log("random pair ---- ");
-    random = Math.round(Math.random() * master.tokens.length);
-    console.log(random);
-    console.log("uni pair: ", master.pairs[random]);
-    console.log("sushi pair: ", master.pairs[random + master.tokens.length]);
+        const { potentialTrades } = await evaluatePairs();
+        potentialTrades.sort((a, b) => b.profit.sub(a.profit));
+    
+        console.log("total potential trades: ", potentialTrades.length);
 
-    await getDecimals(pd);
-    await getReserves(pd);
-    const { tradePairs, tradeRouters, tradeTokens, tokenAmount, decimals, profit } = await evaluatePairs();
-    console.log("<------------------>");
-    console.log("<-- best bet is: -->");
-    console.log(`pairs: ${tradePairs}`);
-    console.log(`routers: ${tradeRouters}`);
-    console.log(`tokens: ${tradeTokens}`);
-    console.log(`tokens to trade: ${tokenAmount}`);
-    console.log(`token decimals: ${decimals}`);
-    console.log(`profit: ${profit}`);
+        try {
+            if(potentialTrades.length === 0) {
+                console.log("no viable trades right now");
+            } else if(potentialTrades.length < 10) {
+                const success = await execute(potentialTrades);
+            } else {
+                const success = await execute(potentialTrades.slice(0, 10));
+            }
+        } catch(error) {
+            
+        }
+    });
 
-    console.log("master decimals: ", master.decimals[1][1]);
-
-    // ethers.provider.on("block", async (blocknum) => {
-    //     // console.log("block number: ", blocknum);
-    //     await getReserves(pd);
-    //     const { from, to, tokenAmount, profit } = await evaluatePairs();
-    //     console.log("<------------------>");
-    //     console.log("<-- best bet is: -->");
-    //     console.log(`from: ${from}`);
-    //     console.log(`to: ${to}`);
-    //     console.log(`tokens to trade: ${tokenAmount}`);
-    //     console.log(`profit: ${profit}`);
-    // });
 }
 
 main();

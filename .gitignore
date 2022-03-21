@@ -2,3 +2,7 @@ node_modules
 .env
 artifacts
 cache
+execArbGoerli.js
+checkArbGoerli.js
+flashbotsGoerli.js
+exec.js
