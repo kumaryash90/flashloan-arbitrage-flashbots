@@ -52,25 +52,12 @@ contract Arbitrage {
 
         bytes memory data = abi.encode(_token, routers[0], routers[1]);
 
-        address[] memory newPath = new address[](2);
-        newPath[0] = weth;
-        newPath[1] = _token;
-
-        uint256 amountRequired = IUniswapV2Router02(routers[0]).getAmountsIn(
-            tokensToTrade,
-            newPath
-        )[0];
-
-        console.log("amount required before swap: ", amountRequired);
-
         IUniswapV2Pair(pairs[0]).swap(
             _amount0Out,
             _amount1Out,
             address(this),
             data
         );
-
-        console.log("flash swap complete");
     }
 
     function uniswapV2Call(
@@ -86,8 +73,6 @@ contract Arbitrage {
             (address, address, address)
         );
         uint256 tokenBalance = IERC20(token).balanceOf(address(this));
-        console.log("amount received: ", amount);
-        console.log("tokenBalance before: ", tokenBalance);
         // require(amount == tokenBalance, "amount and tokenBalance mismatch");
         require(IERC20(token).approve(routerTo, amount), "couldn't approve");
         address[] memory path = new address[](2);
@@ -97,7 +82,6 @@ contract Arbitrage {
             tokenBalance,
             path
         )[1];
-        console.log("eth received: ", amountReceived);
         IUniswapV2Router02(routerTo).swapExactTokensForETH(
             amount,
             0,
@@ -105,9 +89,6 @@ contract Arbitrage {
             address(this),
             block.timestamp
         );
-
-        uint256 ethBalance = address(this).balance;
-        console.log("ethBalance before: ", ethBalance);
 
         address[] memory newPath = new address[](2);
         newPath[0] = path[1];
@@ -118,17 +99,11 @@ contract Arbitrage {
             newPath
         )[0];
 
-        console.log("amount required: ", amountRequired);
-
         require(
             amountReceived > amountRequired,
             "amountReceived is less than amountRequired"
         );
         IWETH(weth).deposit{value: amountRequired}();
         IWETH(weth).transfer(msg.sender, amountRequired);
-        tokenBalance = IERC20(token).balanceOf(address(this));
-        console.log("tokenBalance after: ", tokenBalance);
-        ethBalance = address(this).balance;
-        console.log("ethBalance after: ", ethBalance);
     }
 }
