@@ -23,8 +23,8 @@ const sendTx = async (txns, potentialTrades, blocknum) => {
             type: 2,
             value: BigNumber.from(0),
             data: txns[0].data,
-            maxFeePerGas: BigNumber.from(10).pow(9).mul(30), // 3 gwei
-            maxPriorityFeePerGas: BigNumber.from(10).pow(9).mul(20), // 2 gwei
+            maxFeePerGas: BigNumber.from(10).pow(9).mul(30), // 30 gwei
+            maxPriorityFeePerGas: BigNumber.from(10).pow(9).mul(20), // 20 gwei
             to: "0x3C9f68632Ef4AB927BBFCf92bf7f1a76046a326C"
         },
         signer: signerWallet.connect(provider)
