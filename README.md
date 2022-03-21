@@ -1,6 +1,6 @@
 # Flashloan Arbitrage using Flashbots
 
-A bot that can identify arbitrage opportunities across exchanges (uniswap and sushiswap currently).
+An experimental bot that can identify arbitrage opportunities across exchanges (uniswap and sushiswap currently).
 If an opportunity exists, then send transactions through a flashbot relay, to avoid front-running.
 
 To run the program:
