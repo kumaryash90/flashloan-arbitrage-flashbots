@@ -12,13 +12,11 @@ To run locally using a fork, in a separate terminal window, run `npx hardhat nod
 
 (forked mainnet at block 14384561; might take some time to build data cache on first run)
 
-### Done so far
+### Completed
 Smart contracts: **PairData.sol**, **Arbitrage.sol**  
-Scripts for data: **checkArbitrage.js**, **executeArbitrage.js**
+Scripts: **checkArbitrage.js**, **executeArbitrage.js**, **flashbotTx.js**
 - fetch, filter, and organize pool data from the exchanges
 - evaluate the pairs for arbitrage opportunity and profitability
 - update reserves on each new block
 - smart contract for execution of flashloan & arbitrage
-
-### In Progress
 - creating & sending transactions using flashbot bundles
