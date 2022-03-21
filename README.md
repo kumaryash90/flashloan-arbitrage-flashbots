@@ -1,6 +1,6 @@
 # Flashloan Arbitrage using Flashbots
 
-I'm trying to create a bot that can identify arbitrage opportunities across exchanges (uniswap and sushiswap currently).
+A bot that can identify arbitrage opportunities across exchanges (uniswap and sushiswap currently).
 If an opportunity exists, then send transactions through a flashbot relay, to avoid front-running.
 
 To run the program:
