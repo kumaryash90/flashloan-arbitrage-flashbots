@@ -244,24 +244,27 @@ const main = async () => {
    ethers.provider.on("block", async (blocknum) => {
         console.log(blocknum);
         
-        await getReserves(pd);
+        if(blocknum % 2 === 0 {
+            await getReserves(pd);
 
-        const { potentialTrades } = await evaluatePairs();
-        potentialTrades.sort((a, b) => b.profit.sub(a.profit));
-    
-        console.log("total potential trades: ", potentialTrades.length);
+            const { potentialTrades } = await evaluatePairs();
+            potentialTrades.sort((a, b) => b.profit.sub(a.profit));
 
-        try {
-            if(potentialTrades.length === 0) {
-                console.log("no viable trades right now");
-            } else if(potentialTrades.length < 10) {
-                const success = await execute(potentialTrades);
-            } else {
-                const success = await execute(potentialTrades.slice(0, 10));
+            console.log("total potential trades: ", potentialTrades.length);
+
+            try {
+                if(potentialTrades.length === 0) {
+                    console.log("no viable trades right now");
+                } else if(potentialTrades.length < 10) {
+                    const success = await execute(potentialTrades);
+                } else {
+                    const success = await execute(potentialTrades.slice(0, 10));
+                }
+            } catch(error) {
+
             }
-        } catch(error) {
-            
         }
+        
     });
 
 }
